@@ -4,13 +4,13 @@ class BrakeBanner {
 			width: window.innerWidth,
 			height: window.innerHeight,
 			backgroundColor: 0xffffff,
+			resizeTo: window
 		})
-		// debugger
 		document.querySelector(selector).appendChild(this.app.view)
 
 		this.loader = new PIXI.Loader();
 		this.stage = this.app.stage;
-		this.souceArray = ['btn.png', 'btn_circle.png', 'brake_bike.png', 'brake_handlerbar.png', 'brake_lever.png']
+		this.souceArray = ['btn.png', 'btn_circle.png', 'brake_bike.png', 'brake_handlerbar.png', 'brake_lever.png', 'malu.png']
 		this.addSouce('images');
 		this.loader.load();
 
@@ -28,26 +28,32 @@ class BrakeBanner {
 		}
 	}
 	show() {
+		let road = this.roadContainer()
 		let bike = this.createBike();
+		let particles = this.createParticleContainer()
 		let actionButton = this.createActionButton()
-		actionButton.x = actionButton.y = 400;
+		actionButton.x = window.innerWidth * 0.4;
+		actionButton.y = window.innerHeight * 0.5;
 		console.log(actionButton.interActive, actionButton.interactiveChildren)
 		actionButton.interactive = true;
 		actionButton.buttonMode = true;//更改cursor 亦可借助actionButton.cursor = 'wait';更改
 
-
 		actionButton.on('pointerdown', (e) => {
-			gsap.to(this.bikelever, { duration: 0.5, rotation: Math.PI / 180 * -35, repeat: 0 });
-
+			gsap.to(this.bikelever, { duration: 0.4, rotation: Math.PI / 180 * -35, repeat: 0 });
+			gsap.to(bike, { duration: 0.3, x: bike.x - 20, y: bike.y + 20, repeat: 0 });
+			particles.pause();
+			road.pause();
 		})
 		actionButton.on('pointerup', (e) => {
-			gsap.to(this.bikelever, { duration: 0.5, rotation: 0, repeat: 0 });
-
+			gsap.to(this.bikelever, { duration: 0.4, rotation: 0, repeat: 0 });
+			gsap.to(bike, { duration: 0.3, x: bike.x + 20, y: bike.y - 20, repeat: 0 });
+			particles.start();
+			road.start()
 		})
 
 		let resize = () => {
-			let bikeContainer.x = window.innerWidth - bikeContainer.width;
-			let bikeContainer.y = window.innerHeight - bikeContainer.height;
+			bike.x = window.innerWidth - bike.width + 20;
+			bike.y = window.innerHeight - bike.height;
 		}
 		window.addEventListener('resize', resize)
 		resize();
@@ -98,8 +104,105 @@ class BrakeBanner {
 		bikeContainer.addChild(bikelever)
 		bikeContainer.addChild(bikeHandbar)//后添加以显示在内部
 
-
 		return bikeContainer
 	}
+	createParticleContainer() {
+		let container = new PIXI.Container();
+		this.stage.addChild(container);
+		let particles = [];
+		const color = [0xf1cf54, 0xb5cea8, 0xf1cf54, 0x818cf6]
+		for (let i = 0; i < 12; i++) {
+			let gr = new PIXI.Graphics();
+			gr.beginFill(color[Math.floor(Math.random() * color.length)]);
+			gr.drawCircle(0, 0, 6)
+			gr.endFill();
+			let pitem = {
+				sx: i * 0.08 * window.innerWidth,
+				sy: Math.random() * window.innerHeight,
+				gr: gr
+			}
+			gr.x = pitem.sx,
+				gr.y = pitem.sy;
+			container.addChild(gr);
+			particles.push(pitem)
+		}
+		let speed = 0;
+		function loop() {
+			speed += .5;
+			speed = Math.min(speed, 20)
+			for (let i = 0; i < particles.length; i++) {
+				const element = particles[i];
+				element.gr.y += speed;
+				if (speed >= 20) {
+					element.gr.scale.y = 40;
+					element.gr.scale.x = 0.03;
+				}
+				if (element.gr.y > window.innerHeight) element.gr.y = 0
+			}
+		}
 
+		container.pivot.x = container.x = window.innerWidth / 2;
+		container.pivot.y = container.y = window.innerHeight / 2;
+		container.rotation = 32 * Math.PI / 180
+		function start() {
+			speed = 0;
+			gsap.ticker.add(loop);
+		}
+		function pause() {
+			gsap.ticker.remove(loop);
+			for (let i = 0; i < particles.length; i++) {
+				const element = particles[i];
+				element.gr.scale.y = 1;
+				element.gr.scale.x = 1;
+				gsap.to(element.gr, { duration: .5, x: element.sx, y: element.sy, ease: 'elastic.out' });
+			}
+		}
+		start();
+
+		return {
+			pause,
+			start
+		}
+	}
+	roadContainer() {
+		let container = new PIXI.Container();
+		this.stage.addChild(container);
+		let roadImage = this.getResources('malu.png');
+		container.addChild(roadImage)
+		container.pivot.x = window.innerWidth / 2;
+		container.pivot.y = window.innerHeight / 2;
+		let sy = container.y = -800;
+		let sx = container.x = 1000;
+		container.scale.x = container.scale.y = 1.45
+		//旋转位置使其与车轮平行
+		container.rotation = 35 * Math.PI / 180;
+
+		let speed = 0
+		function Rloop() {
+			speed += .5;
+			speed = Math.min(speed, 20)
+			//计算改变Y
+			container.y += (Math.cos(35 * Math.PI / 180)) * speed;
+			//计算改变X
+			container.x -= (Math.sin(35 * Math.PI / 180)) * speed;
+			//超出重置
+			if (container.y > 60) {
+				container.y = sy, container.x = sx;
+			}
+		}
+		function start() {
+			speed = 0;
+			gsap.ticker.add(Rloop);
+		}
+		function pause() {
+			gsap.ticker.remove(Rloop);
+			gsap.to(container, { duration: .5, x: container.x += (Math.sin(35 * Math.PI / 180)) * speed , y: container.y -= (Math.cos(35 * Math.PI / 180)) * speed, ease: 'elastic.out' });
+		}
+		start();
+
+		return {
+			pause,
+			start
+		}
+	}
 }
